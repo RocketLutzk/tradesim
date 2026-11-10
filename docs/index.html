@@ -224,12 +224,16 @@ fetch("data/paper.json?" + Date.now()).then(r => r.json()).then(d => {
   document.getElementById("p-meta").textContent = `Старт: ${fmtDate(d.started)} · Останній запуск: ${fmtDate(d.last_run)}` +
     (Object.keys(d.errors||{}).length ? ` · Не оновились: ${Object.keys(d.errors).join(", ")}` : "");
   const accs = Object.values(d.accounts);
+  const pnl = t.equity - t.capital, fees = accs.reduce((s,x) => s + x.fees, 0);
+  const money = v => (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("uk-UA", {maximumFractionDigits:2});
   document.getElementById("p-cards").innerHTML = [
-    ["Триває", days < 1 ? `${Math.round(days*24)} год` : `${days.toFixed(1)} дн.`],
-    ["Усі рахунки разом", `$${t.equity.toFixed(0)} <span class="muted small">з $${t.capital.toFixed(0)}</span>`],
-    ["Загальний результат", `<span class="${cls(r)}">${pct(r,2)}</span>`],
+    ["Вклали (віртуально)", money(t.capital) + ` <span class="muted small">${accs.length} × $1000</span>`],
+    ["Зараз на рахунках", money(t.equity)],
+    ["Заробили / втратили", `<span class="${cls(pnl)}">${pnl > 0 ? "+" : ""}${money(pnl)} (${pct(r,2)})</span>`],
+    ["Витратили на комісії", `<span class="neg">${money(fees)}</span> <span class="muted small">вже враховано вище</span>`],
+    ["Закритих угод", `${accs.reduce((s,x) => s + x.trades, 0)} <span class="muted small">відкрито позицій: ${accs.filter(x => x.in_position).length}</span>`],
     ["Рахунків у плюсі", `${accs.filter(x => x.return > 0).length} з ${accs.length}`],
-    ["Закритих угод", accs.reduce((s,x) => s + x.trades, 0)],
+    ["Триває", days < 1 ? `${Math.max(1, Math.round(days*24))} год` : `${days.toFixed(1)} дн.`],
   ].map(([k,v]) => `<div class="card"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
   const classes = [...new Map(Object.values(d.assets).map(a => [a.class, a.class_name]))];
   filters(document.getElementById("p-filters"), classes, renderPaper);
