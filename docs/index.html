@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TradeSim — перевірка торгових стратегій</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --line:#2a2f3a; --text:#e6e8ec; --muted:#8b93a3;
+          --green:#2fbf71; --red:#e5534b; --accent:#5b8def; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:20px 24px 8px; }
+  h1 { margin:0; font-size:22px; } h2 { font-size:17px; margin:24px 0 10px; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  main { padding:0 24px 40px; max-width:1300px; }
+  .tabs { display:flex; gap:6px; margin:14px 0; }
+  .tabs button, .filters button { background:var(--card); color:var(--text); border:1px solid var(--line);
+          padding:7px 14px; border-radius:8px; cursor:pointer; font:inherit; }
+  .tabs button.on, .filters button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .card b { display:block; font-size:22px; margin-top:2px; }
+  .note { background:#1d2230; border-left:3px solid var(--accent); padding:10px 14px; border-radius:6px; margin:14px 0; }
+  .filters { display:flex; gap:6px; flex-wrap:wrap; margin:10px 0; }
+  .wrap { overflow-x:auto; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; background:var(--card); }
+  th, td { padding:7px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap; }
+  th { color:var(--muted); font-weight:600; font-size:12px; position:sticky; top:0; background:var(--card); }
+  th:first-child, td:first-child { text-align:left; }
+  tbody tr { cursor:pointer; } tbody tr:hover { background:#1f2430; } tr.sel { background:#232a3a; }
+  .pos { color:var(--green); } .neg { color:var(--red); }
+  .beat { font-weight:700; text-decoration:underline; text-decoration-color:var(--green); }
+  .chartbox { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:14px; height:380px; }
+  .hidden { display:none; }
+  .tag { font-size:11px; padding:1px 6px; border-radius:4px; background:#2a3142; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>TradeSim</h1>
+  <div class="muted">Перевірка торгових стратегій на годинних свічках: крипта, акції, сировина, форекс. Без реальних грошей.</div>
+  <div class="tabs">
+    <button data-tab="bt" class="on">Бектест (історія)</button>
+    <button data-tab="paper">Паперова торгівля (наживо)</button>
+    <button data-tab="help">Як читати</button>
+  </div>
+</header>
+<main>
+<section id="tab-bt">
+  <div class="muted small" id="bt-meta">Завантаження…</div>
+  <div class="cards" id="bt-cards"></div>
+  <div class="note" id="bt-verdict"></div>
+  <div class="filters" id="bt-filters"></div>
+  <h2>Результат на тестовому періоді (дані, яких стратегія не бачила)</h2>
+  <div class="wrap"><table id="bt-table"></table></div>
+  <div class="muted small" style="margin-top:6px">Підкреслено — стратегія обігнала «купив і тримав». Натисни на рядок, щоб побачити графік і деталі.</div>
+  <div id="bt-detail" class="hidden">
+    <h2 id="bt-detail-title"></h2>
+    <div class="chartbox"><canvas id="bt-chart"></canvas></div>
+    <div class="wrap" style="margin-top:14px"><table id="bt-detail-table"></table></div>
+  </div>
+</section>
+
+<section id="tab-paper" class="hidden">
+  <div class="muted small" id="p-meta">Завантаження…</div>
+  <div class="cards" id="p-cards"></div>
+  <div class="filters" id="p-filters"></div>
+  <h2>Рахунки (кожен стартував з $1000)</h2>
+  <div class="wrap" style="max-height:520px"><table id="p-table"></table></div>
+  <div class="chartbox"><canvas id="p-chart"></canvas></div>
+  <h2>Останні угоди</h2>
+  <div class="wrap" style="max-height:420px"><table id="p-trades"></table></div>
+</section>
+
+<section id="tab-help" class="hidden">
+  <div class="note">
+    <p><b>Бектест.</b> Історія кожного активу (≈2 роки годинних свічок) ділиться на дві частини. На перших 70% для кожної стратегії підбираються найкращі параметри. Потім стратегія з цими параметрами «торгує» на останніх 30%, яких вона не бачила. Таблиця показує саме цей, чесний результат.</p>
+    <p><b>Витрати враховані:</b> крипта 0.15% на кожну сторону угоди (комісія + проковзування), акції та сировина 0.05%, форекс 0.02%.</p>
+    <p><b>«Купив і тримав»</b> — просто купити актив на початку тестового періоду і нічого не робити. Стратегія має сенс, лише якщо стабільно краща за це з урахуванням ризику.</p>
+    <p><b>Шарп</b> — дохідність з поправкою на коливання. Понад 1 — добре, понад 2 — підозріло добре. <b>Просадка</b> — найбільше падіння капіталу від піку.</p>
+    <p><b>Пастка везіння.</b> Ми перевіряємо 85 комбінацій «стратегія × актив». Навіть на випадкових даних частина з них покаже прибуток. Тому одна гарна цифра нічого не доводить. Шукай стратегію, яка працює на кількох активах одного класу і потім підтверджується в паперовій торгівлі.</p>
+    <p><b>Паперова торгівля.</b> Щогодини бот бере останню закриту свічку, рахує сигнали і «торгує» віртуальними $1000 на кожну пару «стратегія × актив». Параметри — підібрані на всій історії. Це перевірка на справжньому майбутньому.</p>
+    <p class="muted">Це не фінансова порада. Минулі результати не гарантують майбутніх.</p>
+  </div>
+</section>
+</main>
+
+<script>
+const pct = (v, d=1) => v == null ? "—" : (v > 0 ? "+" : "") + (v*100).toFixed(d) + "%";
+const cls = v => v == null ? "" : v > 0 ? "pos" : v < 0 ? "neg" : "";
+const fmtDate = s => new Date(s).toLocaleString("uk-UA", {dateStyle:"medium", timeStyle:"short"});
+const COLORS = ["#5b8def","#2fbf71","#f0a43a","#c86bfa","#e5534b","#3ec7c7"];
+const charts = {};
+function lineChart(id, datasets) {
+  if (typeof Chart === "undefined") return;   // бібліотека графіків не завантажилась
+  if (charts[id]) charts[id].destroy();
+  charts[id] = new Chart(document.getElementById(id), {
+    type: "line",
+    data: { datasets },
+    options: { animation:false, maintainAspectRatio:false, parsing:false, normalized:true,
+      interaction:{mode:"nearest", axis:"x", intersect:false},
+      plugins:{ legend:{labels:{color:"#e6e8ec", boxWidth:12}},
+        tooltip:{callbacks:{label:c => `${c.dataset.label}: ${c.parsed.y.toFixed(3)}`}} },
+      scales:{ x:{type:"time", ticks:{color:"#8b93a3"}, grid:{color:"#222733"}},
+               y:{ticks:{color:"#8b93a3"}, grid:{color:"#222733"}} },
+      elements:{point:{radius:0}, line:{borderWidth:1.6}} }
+  });
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  ["bt","paper","help"].forEach(t => document.getElementById("tab-"+t).classList.toggle("hidden", t !== b.dataset.tab));
+});
+function filters(el, classes, onPick) {
+  const all = [["all","Усе"], ...classes];
+  el.innerHTML = all.map(([k,n],i) => `<button data-k="${k}" class="${i?'':'on'}">${n}</button>`).join("");
+  el.querySelectorAll("button").forEach(b => b.onclick = () => {
+    el.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); onPick(b.dataset.k);
+  });
+}
+
+// ---------- Бектест ----------
+let BT;
+function renderBt(filter="all") {
+  const assets = BT.assets.filter(a => filter === "all" || a.class === filter);
+  const strats = BT.assets[0].strategies.map(s => [s.key, s.name]);
+  let h = `<thead><tr><th>Актив</th><th>Клас</th><th>Купив і тримав</th>` +
+          strats.map(([,n]) => `<th>${n}</th>`).join("") + `</tr></thead><tbody>`;
+  for (const a of assets) {
+    h += `<tr data-a="${a.asset}"><td><b>${a.asset}</b> <span class="muted small">${a.name}</span></td>
+      <td><span class="tag">${a.class_name}</span></td>
+      <td class="${cls(a.buy_hold.test.return)}">${pct(a.buy_hold.test.return)}</td>`;
+    for (const s of a.strategies) {
+      const t = s.test;
+      h += `<td class="${cls(t.return)} ${s.beats_buy_hold ? 'beat' : ''}" title="Шарп ${t.sharpe}, просадка ${pct(t.max_dd)}, угод/день ${t.trades_per_day}">${pct(t.return)}</td>`;
+    }
+    h += `</tr>`;
+  }
+  // підсумок по стратегіях
+  h += `<tr style="cursor:default"><td><b>Середнє</b></td><td></td><td class="${cls(avg(assets.map(a=>a.buy_hold.test.return)))}">${pct(avg(assets.map(a=>a.buy_hold.test.return)))}</td>`;
+  strats.forEach((_, i) => { const v = avg(assets.map(a => a.strategies[i].test.return)); h += `<td class="${cls(v)}"><b>${pct(v)}</b></td>`; });
+  h += `</tr></tbody>`;
+  const tbl = document.getElementById("bt-table");
+  tbl.innerHTML = h;
+  tbl.querySelectorAll("tr[data-a]").forEach(tr => tr.onclick = () => {
+    tbl.querySelectorAll("tr").forEach(x => x.classList.remove("sel")); tr.classList.add("sel");
+    btDetail(BT.assets.find(a => a.asset === tr.dataset.a));
+  });
+}
+const avg = xs => xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null;
+function btDetail(a) {
+  document.getElementById("bt-detail").classList.remove("hidden");
+  document.getElementById("bt-detail-title").textContent =
+    `${a.asset} — ${a.name}: тестовий період ${fmtDate(a.split)} → ${fmtDate(a.to)}`;
+  const ds = [{label:"Купив і тримав", data:a.buy_hold.curve.map(([x,y])=>({x,y})), borderColor:"#8b93a3", borderDash:[5,4]}];
+  a.strategies.forEach((s,i) => ds.push({label:s.name, data:s.curve.map(([x,y])=>({x,y})), borderColor:COLORS[i]}));
+  lineChart("bt-chart", ds);
+  const row = (n, tr, te, p) => `<tr style="cursor:default"><td>${n}</td>
+    <td class="${cls(tr.return)}">${pct(tr.return)}</td><td class="${cls(te.return)}"><b>${pct(te.return)}</b></td>
+    <td class="neg">${pct(te.max_dd)}</td><td>${te.sharpe}</td><td>${te.trades}</td><td>${te.trades_per_day}</td>
+    <td>${te.win_rate == null ? "—" : (te.win_rate*100).toFixed(0)+"%"}</td><td>${pct(te.avg_trade,2)}</td>
+    <td>${(te.exposure*100).toFixed(0)}%</td><td class="muted small">${p}</td></tr>`;
+  let h = `<thead><tr><th>Стратегія</th><th>Навчання</th><th>Тест</th><th>Просадка</th><th>Шарп</th><th>Угод</th><th>Угод/день</th><th>Виграшних</th><th>Сер. угода</th><th>У ринку</th><th>Параметри</th></tr></thead><tbody>`;
+  h += row("Купив і тримав", a.buy_hold.train, a.buy_hold.test, "");
+  a.strategies.forEach(s => h += row(s.name, s.train, s.test, Object.entries(s.params).map(([k,v])=>`${k}=${v}`).join(", ")));
+  document.getElementById("bt-detail-table").innerHTML = h + "</tbody>";
+}
+fetch("data/backtest.json?" + Date.now()).then(r => r.json()).then(d => {
+  BT = d;
+  const s = d.summary;
+  document.getElementById("bt-meta").textContent = `Оновлено: ${fmtDate(d.generated)}. Активів: ${d.assets.length}` +
+    (Object.keys(d.errors).length ? `. Не завантажились: ${Object.keys(d.errors).join(", ")}` : "");
+  document.getElementById("bt-cards").innerHTML = [
+    ["Комбінацій «стратегія × актив»", s.combos],
+    ["Прибуткові на тесті", `${s.profitable} <span class="muted small">(${Math.round(s.profitable/s.combos*100)}%)</span>`],
+    ["Обігнали «купив і тримав»", `${s.beat_buy_hold} <span class="muted small">(${Math.round(s.beat_buy_hold/s.combos*100)}%)</span>`],
+    ["Прибуткові І краще за тримання", s.beat_and_profitable],
+  ].map(([k,v]) => `<div class="card"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
+  // Вердикт: які стратегії стабільні в межах класу
+  const byClass = {};
+  d.assets.forEach(a => a.strategies.forEach(st => {
+    const k = a.class_name + " · " + st.name; (byClass[k] ||= []).push(st);
+  }));
+  const robust = Object.entries(byClass).filter(([,xs]) => xs.length >= 2 &&
+      xs.every(x => x.test.return > 0) && xs.filter(x => x.beats_buy_hold).length >= Math.ceil(xs.length*0.66) &&
+      avg(xs.map(x => x.test.sharpe)) >= 1)
+    .map(([k]) => k);
+  document.getElementById("bt-verdict").innerHTML = robust.length
+    ? `<b>Кандидати, що працюють на більшості активів класу:</b> ${robust.join("; ")}. Їх варто перевірити в паперовій торгівлі.`
+    : `<b>Жодна стратегія не показала стабільного результату на всьому класі активів.</b> Окремі гарні цифри в таблиці, найімовірніше, везіння (див. «Як читати»).`;
+  const classes = [...new Map(d.assets.map(a => [a.class, a.class_name]))];
+  filters(document.getElementById("bt-filters"), classes, renderBt);
+  renderBt();
+}).catch(() => document.getElementById("bt-meta").textContent = "Бектест ще не запускався.");
+
+// ---------- Паперова торгівля ----------
+let P;
+function renderPaper(filter="all") {
+  const accs = Object.values(P.accounts).filter(x => filter === "all" || P.assets[x.asset].class === filter)
+    .sort((a,b) => b.return - a.return);
+  let h = `<thead><tr><th>Актив · стратегія</th><th>Капітал</th><th>Результат</th><th>Актив з початку</th><th>Різниця</th><th>Угод</th><th>Виграшних</th><th>Комісії</th><th>Зараз</th></tr></thead><tbody>`;
+  for (const x of accs) {
+    const bh = P.assets[x.asset].buy_hold, diff = x.return - bh;
+    h += `<tr data-id="${x.asset}|${x.strategy}"><td><b>${x.asset}</b> · ${x.strategy_name}</td><td>$${x.equity.toFixed(2)}</td>
+      <td class="${cls(x.return)}"><b>${pct(x.return,2)}</b></td><td class="${cls(bh)}">${pct(bh,2)}</td>
+      <td class="${cls(diff)}">${pct(diff,2)}</td><td>${x.trades}</td>
+      <td>${x.trades ? Math.round(x.wins/x.trades*100)+"%" : "—"}</td><td>$${x.fees.toFixed(2)}</td>
+      <td>${x.in_position ? '<span class="pos">у позиції</span>' : '<span class="muted">поза ринком</span>'}</td></tr>`;
+  }
+  const tbl = document.getElementById("p-table");
+  tbl.innerHTML = h + "</tbody>";
+  const show = ids => lineChart("p-chart", ids.map((id,i) => ({label: id.replace("|"," · "),
+    data: P.accounts[id].history.map(([x,y]) => ({x,y})), borderColor: COLORS[i % COLORS.length]})));
+  tbl.querySelectorAll("tr[data-id]").forEach(tr => tr.onclick = () => {
+    tbl.querySelectorAll("tr").forEach(x => x.classList.remove("sel")); tr.classList.add("sel"); show([tr.dataset.id]);
+  });
+  show(accs.slice(0,5).map(x => `${x.asset}|${x.strategy}`));
+}
+fetch("data/paper.json?" + Date.now()).then(r => r.json()).then(d => {
+  P = d;
+  const t = d.total, r = t.equity / t.capital - 1;
+  const days = (new Date(d.last_run) - new Date(d.started)) / 864e5;
+  document.getElementById("p-meta").textContent = `Старт: ${fmtDate(d.started)} · Останній запуск: ${fmtDate(d.last_run)}` +
+    (Object.keys(d.errors||{}).length ? ` · Не оновились: ${Object.keys(d.errors).join(", ")}` : "");
+  const accs = Object.values(d.accounts);
+  document.getElementById("p-cards").innerHTML = [
+    ["Триває", days < 1 ? `${Math.round(days*24)} год` : `${days.toFixed(1)} дн.`],
+    ["Усі рахунки разом", `$${t.equity.toFixed(0)} <span class="muted small">з $${t.capital.toFixed(0)}</span>`],
+    ["Загальний результат", `<span class="${cls(r)}">${pct(r,2)}</span>`],
+    ["Рахунків у плюсі", `${accs.filter(x => x.return > 0).length} з ${accs.length}`],
+    ["Закритих угод", accs.reduce((s,x) => s + x.trades, 0)],
+  ].map(([k,v]) => `<div class="card"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
+  const classes = [...new Map(Object.values(d.assets).map(a => [a.class, a.class_name]))];
+  filters(document.getElementById("p-filters"), classes, renderPaper);
+  renderPaper();
+  let th = `<thead><tr><th>Час</th><th>Актив</th><th>Стратегія</th><th>Дія</th><th>Ціна</th><th>Сума</th><th>Результат угоди</th></tr></thead><tbody>`;
+  for (const x of [...d.trades].reverse())
+    th += `<tr style="cursor:default"><td>${fmtDate(x.time)}</td><td>${x.asset}</td><td>${x.strategy}</td>
+      <td class="${x.side==='BUY'?'pos':'neg'}">${x.side==='BUY'?'Купівля':'Продаж'}</td><td>${(+x.price).toPrecision(6)}</td>
+      <td>$${(+x.value).toFixed(2)}</td><td class="${cls(x.pnl===''?null:+x.pnl)}">${x.pnl===''?'':pct(+x.pnl,2)}</td></tr>`;
+  document.getElementById("p-trades").innerHTML = th + "</tbody>";
+}).catch(() => document.getElementById("p-meta").textContent = "Паперова торгівля ще не запускалась.");
+</script>
+</body>
+</html>
