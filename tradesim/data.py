@@ -76,8 +76,7 @@ def _synthetic(key: str, days: int) -> pd.DataFrame:
                          "low": close * (1 - noise), "close": close, "volume": 1.0}, index=idx)
 
 
-def load(key: str, days: int = 730) -> pd.DataFrame:
-    """Годинні свічки для активу. Остання незакрита свічка відкидається."""
+def _raw(key: str, days: int) -> pd.DataFrame:
     cls, _, binance_symbol, yahoo_ticker = ASSETS[key]
     if os.environ.get("TRADESIM_SYNTHETIC"):
         df = _synthetic(key, days)
@@ -89,11 +88,33 @@ def load(key: str, days: int = 730) -> pd.DataFrame:
             df = _yahoo(yahoo_ticker, days)
     else:
         df = _yahoo(yahoo_ticker, days)
-
     df = df[~df.index.duplicated(keep="last")].sort_index()
-    # Відкидаємо свічку, яка ще не закрилась, щоб не «підглядати» в майбутнє
+    return df[df["close"] > 0]
+
+
+def _us_market_open(now: pd.Timestamp) -> bool:
+    ny = now.tz_convert("America/New_York")
+    minutes = ny.hour * 60 + ny.minute
+    return ny.weekday() < 5 and 9 * 60 + 30 <= minutes < 16 * 60
+
+
+def load_live(key: str, days: int = 60):
+    """(закриті свічки, поточна ціна, чи можна торгувати просто зараз).
+
+    Остання незакрита свічка відкидається з історії (щоб не підглядати в майбутнє),
+    але її ціна — це поточна ринкова ціна, за якою реально можна купити чи продати.
+    """
+    raw = _raw(key, days)
     now = pd.Timestamp.now(tz="UTC")
-    if len(df) and df.index[-1] + pd.Timedelta(hours=1) > now:
-        df = df.iloc[:-1]
-    df = df[df["close"] > 0]
-    return df
+    forming = bool(len(raw)) and raw.index[-1] + pd.Timedelta(hours=1) > now
+    closed = raw.iloc[:-1] if forming else raw
+    live = float(raw["close"].iloc[-1]) if len(raw) else float("nan")
+    tradable = forming
+    if ASSETS[key][0] == "stocks":
+        tradable = tradable and _us_market_open(now)
+    return closed, live, tradable
+
+
+def load(key: str, days: int = 730) -> pd.DataFrame:
+    """Годинні свічки для активу без останньої незакритої."""
+    return load_live(key, days)[0]

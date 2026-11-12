@@ -34,6 +34,8 @@
   .beat { font-weight:700; text-decoration:underline; text-decoration-color:var(--green); }
   .chartbox { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; margin-top:14px; height:380px; }
   .hidden { display:none; }
+  td small { display:block; font-weight:400; color:var(--muted); text-decoration:none; }
+  td.dead { opacity:.35; }
   .tag { font-size:11px; padding:1px 6px; border-radius:4px; background:#2a3142; color:var(--muted); }
 </style>
 </head>
@@ -43,7 +45,8 @@
   <div class="muted">Перевірка торгових стратегій на годинних свічках: крипта, акції, сировина, форекс. Без реальних грошей.</div>
   <div class="tabs">
     <button data-tab="bt" class="on">Бектест (історія)</button>
-    <button data-tab="paper">Паперова торгівля (наживо)</button>
+    <button data-tab="paper">85 рахунків (наживо)</button>
+    <button data-tab="port">Один депозит (наживо)</button>
     <button data-tab="help">Як читати</button>
   </div>
 </header>
@@ -53,9 +56,9 @@
   <div class="cards" id="bt-cards"></div>
   <div class="note" id="bt-verdict"></div>
   <div class="filters" id="bt-filters"></div>
-  <h2>Результат на тестовому періоді (дані, яких стратегія не бачила)</h2>
+  <h2>Результат поза вибіркою (4 відрізки історії, яких стратегія не бачила)</h2>
   <div class="wrap"><table id="bt-table"></table></div>
-  <div class="muted small" style="margin-top:6px">Підкреслено — стратегія обігнала «купив і тримав». Натисни на рядок, щоб побачити графік і деталі.</div>
+  <div class="muted small" style="margin-top:6px">Великий відсоток — прибуток стратегії. Малий під ним — від скількох випадкових стратегій з такими самими угодами вона краща (50% = як монетка, 95%+ = схоже на справжню перевагу). Підкреслено — обігнала «купив і тримав». Бліді клітинки — «мертві» стратегії: не заробили на жодному активі класу. Натисни на рядок, щоб побачити графік і деталі.</div>
   <div id="bt-detail" class="hidden">
     <h2 id="bt-detail-title"></h2>
     <div class="chartbox"><canvas id="bt-chart"></canvas></div>
@@ -67,6 +70,7 @@
   <div class="muted small" id="p-meta">Завантаження…</div>
   <div class="cards" id="p-cards"></div>
   <div class="filters" id="p-filters"></div>
+  <label class="small muted"><input type="checkbox" id="p-dead"> показати «мертві» стратегії (<span id="p-dead-n">0</span> рахунків)</label>
   <h2>Рахунки (кожен стартував з $1000)</h2>
   <div class="wrap" style="max-height:520px"><table id="p-table"></table></div>
   <div class="chartbox"><canvas id="p-chart"></canvas></div>
@@ -74,14 +78,26 @@
   <div class="wrap" style="max-height:420px"><table id="p-trades"></table></div>
 </section>
 
+<section id="tab-port" class="hidden">
+  <div class="muted small" id="f-meta">Завантаження…</div>
+  <div class="cards" id="f-cards"></div>
+  <div class="note" id="f-rules"></div>
+  <h2>Відкриті позиції</h2>
+  <div class="wrap"><table id="f-pos"></table></div>
+  <div class="chartbox"><canvas id="f-chart"></canvas></div>
+  <h2>Угоди</h2>
+  <div class="wrap" style="max-height:420px"><table id="f-trades"></table></div>
+</section>
+
 <section id="tab-help" class="hidden">
   <div class="note">
-    <p><b>Бектест.</b> Історія кожного активу (≈2 роки годинних свічок) ділиться на дві частини. На перших 70% для кожної стратегії підбираються найкращі параметри. Потім стратегія з цими параметрами «торгує» на останніх 30%, яких вона не бачила. Таблиця показує саме цей, чесний результат.</p>
+    <p><b>Бектест (walk-forward).</b> Перші 40% історії кожного активу — лише для навчання. Решта 60% поділена на 4 відрізки. Перед кожним відрізком параметри стратегії підбираються на всій попередній історії, а потім стратегія «торгує» на відрізку, якого не бачила. Таблиця показує склеєний результат чотирьох відрізків.</p>
+    <p><b>Тест на везіння.</b> Угоди стратегії (та сама кількість, ті самі тривалості) розкидаються по тому самому періоду у випадковому порядку 1000 разів. «Краща за 87%» означає, що стратегія обігнала 870 з 1000 таких випадкових двійників. Близько 50% — стратегія не вміє вибирати момент. З 85 комбінацій приблизно 4 покажуть 95%+ просто випадково.</p>
+    <p><b>Кандидат</b> — стратегія, що заробила щонайменше на двох третинах активів свого класу і в середньому краща за 80% випадкових. <b>Мертва</b> — не заробила на жодному активі класу. Це фільтр, а не доказ: остаточно все вирішує торгівля наживо.</p>
     <p><b>Витрати враховані:</b> крипта 0.15% на кожну сторону угоди (комісія + проковзування), акції та сировина 0.05%, форекс 0.02%.</p>
-    <p><b>«Купив і тримав»</b> — просто купити актив на початку тестового періоду і нічого не робити. Стратегія має сенс, лише якщо стабільно краща за це з урахуванням ризику.</p>
-    <p><b>Шарп</b> — дохідність з поправкою на коливання. Понад 1 — добре, понад 2 — підозріло добре. <b>Просадка</b> — найбільше падіння капіталу від піку.</p>
-    <p><b>Пастка везіння.</b> Ми перевіряємо 85 комбінацій «стратегія × актив». Навіть на випадкових даних частина з них покаже прибуток. Тому одна гарна цифра нічого не доводить. Шукай стратегію, яка працює на кількох активах одного класу і потім підтверджується в паперовій торгівлі.</p>
-    <p><b>Паперова торгівля.</b> Щогодини бот бере останню закриту свічку, рахує сигнали і «торгує» віртуальними $1000 на кожну пару «стратегія × актив». Параметри — підібрані на всій історії. Це перевірка на справжньому майбутньому.</p>
+    <p><b>«Купив і тримав»</b> — просто купити актив на початку періоду і нічого не робити. <b>Шарп</b> — дохідність з поправкою на коливання (понад 1 — добре). <b>Просадка</b> — найбільше падіння капіталу від піку.</p>
+    <p><b>85 рахунків.</b> Віртуальні $1000 на кожну пару «стратегія × актив», угоди за ціною закриття годинної свічки, як у бектесті. Якщо запуск запізнився, пропущені свічки відпрацьовуються по черзі.</p>
+    <p><b>Один депозит.</b> Так торгував би реальний бот: один віртуальний депозит $10 000, лише стратегії-кандидати, угоди за поточною ринковою ціною, ризик 1% депозиту на угоду, стоп-лос на кожній позиції, не більше 15% депозиту в одній позиції, денний ліміт збитку 3%.</p>
     <p class="muted">Це не фінансова порада. Минулі результати не гарантують майбутніх.</p>
   </div>
 </section>
@@ -91,27 +107,35 @@
 const pct = (v, d=1) => v == null ? "—" : (v > 0 ? "+" : "") + (v*100).toFixed(d) + "%";
 const cls = v => v == null ? "" : v > 0 ? "pos" : v < 0 ? "neg" : "";
 const fmtDate = s => new Date(s).toLocaleString("uk-UA", {dateStyle:"medium", timeStyle:"short"});
+const money = v => (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("uk-UA", {maximumFractionDigits:2});
+const signed = v => (v > 0 ? "+" : "") + money(v);
+const avg = xs => xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null;
+const card = ([k,v]) => `<div class="card"><span class="muted">${k}</span><b>${v}</b></div>`;
+const span = (a, b) => { const d = (new Date(b) - new Date(a)) / 864e5; return d < 1 ? `${Math.max(1, Math.round(d*24))} год` : `${d.toFixed(1)} дн.`; };
+const $ = id => document.getElementById(id);
 const COLORS = ["#5b8def","#2fbf71","#f0a43a","#c86bfa","#e5534b","#3ec7c7"];
 const charts = {};
 function lineChart(id, datasets) {
   if (typeof Chart === "undefined") return;   // бібліотека графіків не завантажилась
   if (charts[id]) charts[id].destroy();
-  charts[id] = new Chart(document.getElementById(id), {
+  charts[id] = new Chart($(id), {
     type: "line",
     data: { datasets },
     options: { animation:false, maintainAspectRatio:false, parsing:false, normalized:true,
       interaction:{mode:"nearest", axis:"x", intersect:false},
       plugins:{ legend:{labels:{color:"#e6e8ec", boxWidth:12}},
-        tooltip:{callbacks:{label:c => `${c.dataset.label}: ${c.parsed.y.toFixed(3)}`}} },
+        tooltip:{callbacks:{label:c => `${c.dataset.label}: ${c.parsed.y.toLocaleString("uk-UA", {maximumFractionDigits:3})}`}} },
       scales:{ x:{type:"time", ticks:{color:"#8b93a3"}, grid:{color:"#222733"}},
                y:{ticks:{color:"#8b93a3"}, grid:{color:"#222733"}} },
       elements:{point:{radius:0}, line:{borderWidth:1.6}} }
   });
 }
+const TABS = ["bt","paper","port","help"];
 document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
-  ["bt","paper","help"].forEach(t => document.getElementById("tab-"+t).classList.toggle("hidden", t !== b.dataset.tab));
+  TABS.forEach(t => $("tab-"+t).classList.toggle("hidden", t !== b.dataset.tab));
 });
+if (TABS.includes(location.hash.slice(1))) document.querySelector(`.tabs button[data-tab="${location.hash.slice(1)}"]`).click();
 function filters(el, classes, onPick) {
   const all = [["all","Усе"], ...classes];
   el.innerHTML = all.map(([k,n],i) => `<button data-k="${k}" class="${i?'':'on'}">${n}</button>`).join("");
@@ -119,9 +143,10 @@ function filters(el, classes, onPick) {
     el.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); onPick(b.dataset.k);
   });
 }
+const luckTxt = v => v == null ? "замало угод" : `краща за ${Math.round(v*100)}%`;
 
 // ---------- Бектест ----------
-let BT;
+let BT, P, F;
 function renderBt(filter="all") {
   const assets = BT.assets.filter(a => filter === "all" || a.class === filter);
   const strats = BT.assets[0].strategies.map(s => [s.key, s.name]);
@@ -133,72 +158,90 @@ function renderBt(filter="all") {
       <td class="${cls(a.buy_hold.test.return)}">${pct(a.buy_hold.test.return)}</td>`;
     for (const s of a.strategies) {
       const t = s.test;
-      h += `<td class="${cls(t.return)} ${s.beats_buy_hold ? 'beat' : ''}" title="Шарп ${t.sharpe}, просадка ${pct(t.max_dd)}, угод/день ${t.trades_per_day}">${pct(t.return)}</td>`;
+      h += `<td class="${s.dead ? 'dead' : ''}" title="Шарп ${t.sharpe}, просадка ${pct(t.max_dd)}, угод ${t.trades}, відрізків у плюсі ${s.folds_pos} з ${s.folds.length}">
+        <span class="${cls(t.return)} ${s.beats_buy_hold ? 'beat' : ''}">${pct(t.return)}</span><small>${luckTxt(s.luck)}</small></td>`;
     }
     h += `</tr>`;
   }
-  // підсумок по стратегіях
-  h += `<tr style="cursor:default"><td><b>Середнє</b></td><td></td><td class="${cls(avg(assets.map(a=>a.buy_hold.test.return)))}">${pct(avg(assets.map(a=>a.buy_hold.test.return)))}</td>`;
-  strats.forEach((_, i) => { const v = avg(assets.map(a => a.strategies[i].test.return)); h += `<td class="${cls(v)}"><b>${pct(v)}</b></td>`; });
+  const bhAvg = avg(assets.map(a => a.buy_hold.test.return));
+  h += `<tr style="cursor:default"><td><b>Середнє</b></td><td></td><td class="${cls(bhAvg)}">${pct(bhAvg)}</td>`;
+  strats.forEach((_, i) => {
+    const v = avg(assets.map(a => a.strategies[i].test.return));
+    const l = avg(assets.map(a => a.strategies[i].luck).filter(x => x != null));
+    h += `<td><b class="${cls(v)}">${pct(v)}</b><small>${luckTxt(l)}</small></td>`;
+  });
   h += `</tr></tbody>`;
-  const tbl = document.getElementById("bt-table");
+  const tbl = $("bt-table");
   tbl.innerHTML = h;
   tbl.querySelectorAll("tr[data-a]").forEach(tr => tr.onclick = () => {
     tbl.querySelectorAll("tr").forEach(x => x.classList.remove("sel")); tr.classList.add("sel");
     btDetail(BT.assets.find(a => a.asset === tr.dataset.a));
   });
 }
-const avg = xs => xs.length ? xs.reduce((a,b)=>a+b,0)/xs.length : null;
 function btDetail(a) {
-  document.getElementById("bt-detail").classList.remove("hidden");
-  document.getElementById("bt-detail-title").textContent =
-    `${a.asset} — ${a.name}: тестовий період ${fmtDate(a.split)} → ${fmtDate(a.to)}`;
+  $("bt-detail").classList.remove("hidden");
+  $("bt-detail-title").textContent = `${a.asset} — ${a.name}: поза вибіркою ${fmtDate(a.split)} → ${fmtDate(a.to)}`;
   const ds = [{label:"Купив і тримав", data:a.buy_hold.curve.map(([x,y])=>({x,y})), borderColor:"#8b93a3", borderDash:[5,4]}];
   a.strategies.forEach((s,i) => ds.push({label:s.name, data:s.curve.map(([x,y])=>({x,y})), borderColor:COLORS[i]}));
   lineChart("bt-chart", ds);
-  const row = (n, tr, te, p) => `<tr style="cursor:default"><td>${n}</td>
-    <td class="${cls(tr.return)}">${pct(tr.return)}</td><td class="${cls(te.return)}"><b>${pct(te.return)}</b></td>
+  const folds = xs => xs.map(v => `<span class="${cls(v)}">${pct(v,0)}</span>`).join(" ");
+  const row = (n, te, f, extra, p) => `<tr style="cursor:default"><td>${n}</td>
+    <td class="${cls(te.return)}"><b>${pct(te.return)}</b></td><td>${folds(f)}</td>${extra}
     <td class="neg">${pct(te.max_dd)}</td><td>${te.sharpe}</td><td>${te.trades}</td><td>${te.trades_per_day}</td>
     <td>${te.win_rate == null ? "—" : (te.win_rate*100).toFixed(0)+"%"}</td><td>${pct(te.avg_trade,2)}</td>
     <td>${(te.exposure*100).toFixed(0)}%</td><td class="muted small">${p}</td></tr>`;
-  let h = `<thead><tr><th>Стратегія</th><th>Навчання</th><th>Тест</th><th>Просадка</th><th>Шарп</th><th>Угод</th><th>Угод/день</th><th>Виграшних</th><th>Сер. угода</th><th>У ринку</th><th>Параметри</th></tr></thead><tbody>`;
-  h += row("Купив і тримав", a.buy_hold.train, a.buy_hold.test, "");
-  a.strategies.forEach(s => h += row(s.name, s.train, s.test, Object.entries(s.params).map(([k,v])=>`${k}=${v}`).join(", ")));
-  document.getElementById("bt-detail-table").innerHTML = h + "</tbody>";
+  let h = `<thead><tr><th>Стратегія</th><th>Разом</th><th>По відрізках</th><th>Відрізків краще за тримання</th><th>Проти випадкових</th><th>Просадка</th><th>Шарп</th><th>Угод</th><th>Угод/день</th><th>Виграшних</th><th>Сер. угода</th><th>У ринку</th><th>Параметри зараз</th></tr></thead><tbody>`;
+  h += row("Купив і тримав", a.buy_hold.test, a.buy_hold.folds, "<td></td><td></td>", "");
+  a.strategies.forEach(s => h += row(s.name + (s.dead ? ' <span class="tag">мертва</span>' : s.selected ? ' <span class="tag">кандидат</span>' : ''),
+    s.test, s.folds, `<td>${s.folds_beat} з ${s.folds.length}</td><td>${luckTxt(s.luck)}</td>`,
+    Object.entries(s.live_params).map(([k,v])=>`${k}=${v}`).join(", ")));
+  $("bt-detail-table").innerHTML = h + "</tbody>";
 }
-fetch("data/backtest.json?" + Date.now()).then(r => r.json()).then(d => {
+function showBt(d) {
   BT = d;
   const s = d.summary;
-  document.getElementById("bt-meta").textContent = `Оновлено: ${fmtDate(d.generated)}. Активів: ${d.assets.length}` +
+  $("bt-meta").textContent = `Оновлено: ${fmtDate(d.generated)}. Активів: ${d.assets.length}` +
     (Object.keys(d.errors).length ? `. Не завантажились: ${Object.keys(d.errors).join(", ")}` : "");
-  document.getElementById("bt-cards").innerHTML = [
+  $("bt-cards").innerHTML = [
     ["Комбінацій «стратегія × актив»", s.combos],
-    ["Прибуткові на тесті", `${s.profitable} <span class="muted small">(${Math.round(s.profitable/s.combos*100)}%)</span>`],
+    ["Прибуткові поза вибіркою", `${s.profitable} <span class="muted small">(${Math.round(s.profitable/s.combos*100)}%)</span>`],
     ["Обігнали «купив і тримав»", `${s.beat_buy_hold} <span class="muted small">(${Math.round(s.beat_buy_hold/s.combos*100)}%)</span>`],
-    ["Прибуткові І краще за тримання", s.beat_and_profitable],
-  ].map(([k,v]) => `<div class="card"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
-  // Вердикт: які стратегії стабільні в межах класу
-  const byClass = {};
-  d.assets.forEach(a => a.strategies.forEach(st => {
-    const k = a.class_name + " · " + st.name; (byClass[k] ||= []).push(st);
-  }));
-  const robust = Object.entries(byClass).filter(([,xs]) => xs.length >= 2 &&
-      xs.every(x => x.test.return > 0) && xs.filter(x => x.beats_buy_hold).length >= Math.ceil(xs.length*0.66) &&
-      avg(xs.map(x => x.test.sharpe)) >= 1)
-    .map(([k]) => k);
-  document.getElementById("bt-verdict").innerHTML = robust.length
-    ? `<b>Кандидати, що працюють на більшості активів класу:</b> ${robust.join("; ")}. Їх варто перевірити в паперовій торгівлі.`
-    : `<b>Жодна стратегія не показала стабільного результату на всьому класі активів.</b> Окремі гарні цифри в таблиці, найімовірніше, везіння (див. «Як читати»).`;
-  const classes = [...new Map(d.assets.map(a => [a.class, a.class_name]))];
-  filters(document.getElementById("bt-filters"), classes, renderBt);
+    ["Пройшли тест на везіння (95%+)", `${s.lucky} <span class="muted small">випадково очікувалось ≈${Math.round(s.lucky_expected)}</span>`],
+    ["Груп-кандидатів / мертвих", `${s.candidates} / ${s.dead} <span class="muted small">з ${d.groups.length}</span>`],
+  ].map(card).join("");
+  const cand = d.groups.filter(g => g.status === "candidate");
+  $("bt-verdict").innerHTML = cand.length
+    ? `<b>Кандидати:</b> ` + cand.map(g => `${g.class_name} · ${g.name} (у плюсі ${g.profitable} з ${g.n}, у середньому ${pct(g.avg_return)}, ${luckTxt(g.avg_luck)} випадкових)`).join("; ") +
+      `. Ними торгує портфель «Один депозит».`
+    : `<b>Жодна стратегія не пройшла відбір</b> (прибуток на більшості активів класу і в середньому краща за ${Math.round(d.candidate_luck*100)}% випадкових). Портфель «Один депозит» сидить у грошах. Окремі гарні цифри в таблиці, найімовірніше, везіння.`;
+  filters($("bt-filters"), [...new Map(d.assets.map(a => [a.class, a.class_name]))], renderBt);
   renderBt();
-}).catch(() => document.getElementById("bt-meta").textContent = "Бектест ще не запускався.");
+}
 
-// ---------- Паперова торгівля ----------
-let P;
-function renderPaper(filter="all") {
-  const accs = Object.values(P.accounts).filter(x => filter === "all" || P.assets[x.asset].class === filter)
-    .sort((a,b) => b.return - a.return);
+// ---------- 85 рахунків ----------
+let pFilter = "all";
+function renderPaper() {
+  const dead = new Set();
+  if (BT) BT.assets.forEach(a => a.strategies.forEach(s => s.dead && dead.add(`${a.asset}|${s.key}`)));
+  const inClass = Object.values(P.accounts).filter(x => pFilter === "all" || P.assets[x.asset].class === pFilter);
+  const hidden = inClass.filter(x => dead.has(`${x.asset}|${x.strategy}`));
+  const showDead = $("p-dead").checked;
+  const accs = (showDead ? inClass : inClass.filter(x => !hidden.includes(x))).sort((a,b) => b.return - a.return);
+  $("p-dead-n").textContent = hidden.length + (hidden.length ? `, разом ${signed(hidden.reduce((s,x) => s + x.equity - 1000, 0))}` : "");
+
+  const capital = accs.length * 1000, equity = accs.reduce((s,x) => s + x.equity, 0), pnl = equity - capital;
+  const fees = accs.reduce((s,x) => s + x.fees, 0), slip = accs.reduce((s,x) => s + (x.slip || 0), 0);
+  $("p-cards").innerHTML = [
+    ["Вклали (віртуально)", money(capital) + ` <span class="muted small">${accs.length} × $1000</span>`],
+    ["Зараз на рахунках", money(equity)],
+    ["Заробили / втратили", `<span class="${cls(pnl)}">${signed(pnl)} (${pct(capital ? pnl/capital : 0, 2)})</span>`],
+    ["Витратили на комісії", `<span class="neg">${money(fees)}</span> <span class="muted small">вже враховано вище</span>`],
+    ["Ціна затримки", `<span class="${cls(-slip)}">${signed(-slip)}</span> <span class="muted small">якби купували за реальною ціною, а не за ціною свічки</span>`],
+    ["Закритих угод", `${accs.reduce((s,x) => s + x.trades, 0)} <span class="muted small">відкрито позицій: ${accs.filter(x => x.in_position).length}</span>`],
+    ["Рахунків у плюсі", `${accs.filter(x => x.return > 0).length} з ${accs.length}`],
+    ["Триває", span(P.started, P.last_run)],
+  ].map(card).join("");
+
   let h = `<thead><tr><th>Актив · стратегія</th><th>Капітал</th><th>Результат</th><th>Актив з початку</th><th>Різниця</th><th>Угод</th><th>Виграшних</th><th>Комісії</th><th>Зараз</th></tr></thead><tbody>`;
   for (const x of accs) {
     const bh = P.assets[x.asset].buy_hold, diff = x.return - bh;
@@ -208,7 +251,7 @@ function renderPaper(filter="all") {
       <td>${x.trades ? Math.round(x.wins/x.trades*100)+"%" : "—"}</td><td>$${x.fees.toFixed(2)}</td>
       <td>${x.in_position ? '<span class="pos">у позиції</span>' : '<span class="muted">поза ринком</span>'}</td></tr>`;
   }
-  const tbl = document.getElementById("p-table");
+  const tbl = $("p-table");
   tbl.innerHTML = h + "</tbody>";
   const show = ids => lineChart("p-chart", ids.map((id,i) => ({label: id.replace("|"," · "),
     data: P.accounts[id].history.map(([x,y]) => ({x,y})), borderColor: COLORS[i % COLORS.length]})));
@@ -217,34 +260,64 @@ function renderPaper(filter="all") {
   });
   show(accs.slice(0,5).map(x => `${x.asset}|${x.strategy}`));
 }
-fetch("data/paper.json?" + Date.now()).then(r => r.json()).then(d => {
+function showPaper(d) {
   P = d;
-  const t = d.total, r = t.equity / t.capital - 1;
-  const days = (new Date(d.last_run) - new Date(d.started)) / 864e5;
-  document.getElementById("p-meta").textContent = `Старт: ${fmtDate(d.started)} · Останній запуск: ${fmtDate(d.last_run)}` +
+  $("p-meta").textContent = `Старт: ${fmtDate(d.started)} · Останній запуск: ${fmtDate(d.last_run)}` +
     (Object.keys(d.errors||{}).length ? ` · Не оновились: ${Object.keys(d.errors).join(", ")}` : "");
-  const accs = Object.values(d.accounts);
-  const pnl = t.equity - t.capital, fees = accs.reduce((s,x) => s + x.fees, 0);
-  const money = v => (v < 0 ? "−$" : "$") + Math.abs(v).toLocaleString("uk-UA", {maximumFractionDigits:2});
-  document.getElementById("p-cards").innerHTML = [
-    ["Вклали (віртуально)", money(t.capital) + ` <span class="muted small">${accs.length} × $1000</span>`],
-    ["Зараз на рахунках", money(t.equity)],
-    ["Заробили / втратили", `<span class="${cls(pnl)}">${pnl > 0 ? "+" : ""}${money(pnl)} (${pct(r,2)})</span>`],
-    ["Витратили на комісії", `<span class="neg">${money(fees)}</span> <span class="muted small">вже враховано вище</span>`],
-    ["Закритих угод", `${accs.reduce((s,x) => s + x.trades, 0)} <span class="muted small">відкрито позицій: ${accs.filter(x => x.in_position).length}</span>`],
-    ["Рахунків у плюсі", `${accs.filter(x => x.return > 0).length} з ${accs.length}`],
-    ["Триває", days < 1 ? `${Math.max(1, Math.round(days*24))} год` : `${days.toFixed(1)} дн.`],
-  ].map(([k,v]) => `<div class="card"><span class="muted">${k}</span><b>${v}</b></div>`).join("");
-  const classes = [...new Map(Object.values(d.assets).map(a => [a.class, a.class_name]))];
-  filters(document.getElementById("p-filters"), classes, renderPaper);
+  filters($("p-filters"), [...new Map(Object.values(d.assets).map(a => [a.class, a.class_name]))], k => { pFilter = k; renderPaper(); });
+  $("p-dead").onchange = renderPaper;
   renderPaper();
   let th = `<thead><tr><th>Час</th><th>Актив</th><th>Стратегія</th><th>Дія</th><th>Ціна</th><th>Сума</th><th>Результат угоди</th></tr></thead><tbody>`;
   for (const x of [...d.trades].reverse())
     th += `<tr style="cursor:default"><td>${fmtDate(x.time)}</td><td>${x.asset}</td><td>${x.strategy}</td>
       <td class="${x.side==='BUY'?'pos':'neg'}">${x.side==='BUY'?'Купівля':'Продаж'}</td><td>${(+x.price).toPrecision(6)}</td>
       <td>$${(+x.value).toFixed(2)}</td><td class="${cls(x.pnl===''?null:+x.pnl)}">${x.pnl===''?'':pct(+x.pnl,2)}</td></tr>`;
-  document.getElementById("p-trades").innerHTML = th + "</tbody>";
-}).catch(() => document.getElementById("p-meta").textContent = "Паперова торгівля ще не запускалась.");
+  $("p-trades").innerHTML = th + "</tbody>";
+}
+
+// ---------- Один депозит ----------
+function showPort(d) {
+  F = d;
+  const pnl = d.equity - d.deposit, pos = Object.values(d.positions), r = d.rules;
+  $("f-meta").textContent = `Старт: ${fmtDate(d.started)} · Останній запуск: ${fmtDate(d.last_run)}`;
+  $("f-cards").innerHTML = [
+    ["Депозит (віртуальний)", money(d.deposit)],
+    ["Зараз", money(d.equity) + ` <span class="muted small">вільних грошей ${money(d.cash)}</span>`],
+    ["Заробили / втратили", `<span class="${cls(pnl)}">${signed(pnl)} (${pct(d.return, 2)})</span>`],
+    ["Витратили на комісії", `<span class="neg">${money(d.fees)}</span> <span class="muted small">вже враховано вище</span>`],
+    ["Закритих угод", `${d.closed} <span class="muted small">${d.closed ? "виграшних " + Math.round(d.wins/d.closed*100) + "%" : ""}</span>`],
+    ["Відкрито позицій", pos.length],
+    ["Денний ліміт збитку", d.day && d.day.halted ? `<span class="neg">спрацював</span> <span class="muted small">торгівлю зупинено до завтра</span>` : `<span class="pos">у нормі</span>`],
+    ["Триває", span(d.started, d.last_run)],
+  ].map(card).join("");
+  const groups = [...new Set(d.selected.map(s => `${s.class_name} · ${s.name}`))];
+  $("f-rules").innerHTML = (d.selected.length
+      ? `<b>Стратегії в роботі:</b> ${groups.join("; ")} — на активах: ${[...new Set(d.selected.map(s => s.asset))].join(", ")}.`
+      : `<b>Зараз портфель нічим не торгує:</b> жодна стратегія не пройшла відбір у бектесті.`) +
+    `<br><span class="muted">Правила: ризик ${r.risk*100}% депозиту на угоду, стоп-лос ${r.stop_atr} × середній годинний розмах ціни, не більше ${r.max_pos*100}% депозиту в одній позиції, денний ліміт збитку ${r.day_limit*100}%, вхід лише за свіжим сигналом, угоди за поточною ринковою ціною.</span>`;
+  let h = `<thead><tr><th>Актив · стратегія</th><th>Вхід</th><th>Ціна входу</th><th>Стоп-лос</th><th>Ціна зараз</th><th>Вкладено</th><th>Результат</th></tr></thead><tbody>`;
+  for (const p of pos)
+    h += `<tr style="cursor:default"><td><b>${p.asset}</b> · ${p.strategy}</td><td>${fmtDate(p.entry_time)}</td><td>${(+p.entry_price).toPrecision(6)}</td>
+      <td>${(+p.stop).toPrecision(6)}</td><td>${(+p.last_price).toPrecision(6)}</td><td>${money(p.cost_basis)}</td>
+      <td class="${cls(p.pnl)}">${pct(p.pnl, 2)}</td></tr>`;
+  if (!pos.length) h += `<tr style="cursor:default"><td colspan="7" class="muted">Відкритих позицій немає.</td></tr>`;
+  $("f-pos").innerHTML = h + "</tbody>";
+  lineChart("f-chart", [{label:"Капітал, $", data:d.history.map(([x,y]) => ({x,y})), borderColor:COLORS[0]}]);
+  let th = `<thead><tr><th>Час</th><th>Актив</th><th>Стратегія</th><th>Дія</th><th>Причина</th><th>Ціна</th><th>Сума</th><th>Результат</th></tr></thead><tbody>`;
+  for (const x of [...d.trades].reverse())
+    th += `<tr style="cursor:default"><td>${fmtDate(x.time)}</td><td>${x.asset}</td><td>${x.strategy}</td>
+      <td class="${x.side==='BUY'?'pos':'neg'}">${x.side==='BUY'?'Купівля':'Продаж'}</td><td>${x.reason}</td><td>${(+x.price).toPrecision(6)}</td>
+      <td>${money(+x.value)}</td><td class="${cls(x.pnl===''?null:+x.pnl)}">${x.pnl===''?'':signed(+x.pnl_usd)+" ("+pct(+x.pnl,2)+")"}</td></tr>`;
+  if (!d.trades.length) th += `<tr style="cursor:default"><td colspan="8" class="muted">Угод ще не було.</td></tr>`;
+  $("f-trades").innerHTML = th + "</tbody>";
+}
+
+const get = f => fetch(`data/${f}.json?` + Date.now()).then(r => r.ok ? r.json() : null).catch(() => null);
+Promise.all([get("backtest"), get("paper"), get("portfolio")]).then(([bt, p, f]) => {
+  if (bt && bt.groups) showBt(bt); else $("bt-meta").textContent = "Бектест ще не запускався.";
+  if (p) showPaper(p); else $("p-meta").textContent = "Паперова торгівля ще не запускалась.";
+  if (f) showPort(f); else $("f-meta").textContent = "Портфель ще не запускався.";
+});
 </script>
 </body>
 </html>
