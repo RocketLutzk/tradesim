@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tradesim
+  group: tradesim-backtest
   cancel-in-progress: false
 
 jobs:
