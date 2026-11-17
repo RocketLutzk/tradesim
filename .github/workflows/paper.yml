@@ -1,8 +1,14 @@
 name: Паперова торгівля
 
+# Розклад GitHub ненадійний (запускав бота 2–4 рази на добу замість щогодини).
+# Тому кожен запуск — це «зміна» на ~5 год 45 хв: бот торгує щогодини о :04,
+# між циклами спить, а в кінці сам запускає наступну зміну. Розклад нижче —
+# лише запасний варіант, щоб ланцюжок відновився, якщо колись обірветься.
+# Зупинити бота: Actions → «Паперова торгівля» → «Disable workflow».
+
 on:
   schedule:
-    - cron: "4,24,44 * * * *"   # GitHub пропускає багато запусків, тому пробуємо тричі на годину
+    - cron: "4 */3 * * *"
   workflow_dispatch: {}
 
 permissions:
@@ -10,13 +16,13 @@ permissions:
   actions: write
 
 concurrency:
-  group: tradesim
+  group: tradesim-paper
   cancel-in-progress: false
 
 jobs:
   paper:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -27,22 +33,33 @@ jobs:
         run: pip install -r requirements.txt
       - name: Бектест, якщо його ще немає (потрібні параметри)
         run: test -f docs/data/backtest.json || python -m tradesim backtest
-      - name: Один цикл паперової торгівлі
-        run: python -m tradesim paper
-      - name: Зберегти стан
+      - name: Торгувати щогодини до кінця зміни
         run: |
           git config user.name "tradesim-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/data data
-          if git diff --cached --quiet; then echo "Змін немає"; exit 0; fi
-          git commit -q -m "Паперова торгівля $(date -u +%Y-%m-%dT%H:%MZ)"
-          for i in 1 2 3; do git pull -q --rebase && git push -q && exit 0; sleep 5; done
-          exit 1
-      - name: Не дати GitHub вимкнути розклад (раз на добу)
-        if: github.event_name == 'schedule'
+          end=$(( $(date +%s) + 5*3600 + 40*60 ))
+          while :; do
+            git pull -q --rebase || echo "pull не вдався, працюю з поточним станом"
+            echo "=== Цикл $(date -u +%Y-%m-%dT%H:%MZ) ==="
+            python -m tradesim paper || echo "Цикл завершився з помилкою, пробую наступної години"
+            git add docs/data data
+            if ! git diff --cached --quiet; then
+              git commit -q -m "Паперова торгівля $(date -u +%Y-%m-%dT%H:%MZ)"
+              for i in 1 2 3 4 5; do git pull -q --rebase && git push -q && break; sleep 10; done
+            fi
+            now=$(date +%s)
+            next=$(( (now / 3600 + 1) * 3600 + 4*60 ))     # наступна година, хвилина :04
+            [ "$next" -gt "$end" ] && break
+            echo "Сплю до $(date -u -d @$next +%H:%MZ)"
+            sleep $(( next - now ))
+          done
+      - name: Запустити наступну зміну
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ "$(date -u +%H)" = "03" ]; then
-            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/paper.yml/enable" || true
-          fi
+        run: gh workflow run paper.yml --ref main -R "${GITHUB_REPOSITORY}"
+      - name: Не дати GitHub вимкнути розклад
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/paper.yml/enable" || true
