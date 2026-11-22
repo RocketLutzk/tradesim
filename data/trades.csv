@@ -283,3 +283,6 @@ time,asset,strategy,side,price,value,pnl
 2026-11-22T11:00:00+00:00,ETH,rsi_reversion,SELL,1708.46,827.02,-0.173
 2026-11-22T11:00:00+00:00,BNB,rsi_reversion,SELL,552.94,833.04,-0.1595
 2026-11-22T15:00:00+00:00,ETH,bollinger_reversion,SELL,1718.4,847.91,-0.0311
+2026-11-22T16:00:00+00:00,BTC,bollinger_reversion,SELL,61252.48,827.72,-0.1723
+2026-11-22T16:00:00+00:00,BNB,donchian_breakout,BUY,560.46,1000.0,
+2026-11-22T16:00:00+00:00,BNB,bollinger_reversion,SELL,560.46,870.09,-0.0306
