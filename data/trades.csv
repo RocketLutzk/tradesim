@@ -282,3 +282,4 @@ time,asset,strategy,side,price,value,pnl
 2026-11-22T08:00:00+00:00,ETH,macd,BUY,1687.33,813.9,
 2026-11-22T11:00:00+00:00,ETH,rsi_reversion,SELL,1708.46,827.02,-0.173
 2026-11-22T11:00:00+00:00,BNB,rsi_reversion,SELL,552.94,833.04,-0.1595
+2026-11-22T15:00:00+00:00,ETH,bollinger_reversion,SELL,1718.4,847.91,-0.0311
