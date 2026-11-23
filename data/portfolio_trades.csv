@@ -11,3 +11,4 @@ time,asset,strategy,side,reason,price,value,pnl,pnl_usd
 2026-11-23T15:04:00+00:00,QQQ,rsi_reversion,BUY,сигнал,650.4600219726562,1493.41,,
 2026-11-23T15:04:00+00:00,SPY,rsi_reversion,BUY,сигнал,721.719970703125,1493.3,,
 2026-11-23T15:04:00+00:00,TSLA,rsi_reversion,BUY,сигнал,389.0700988769531,1493.18,,
+2026-11-23T16:04:00+00:00,TSLA,rsi_reversion,SELL,сигнал,389.44500732421875,1493.13,-0.0,-0.06
