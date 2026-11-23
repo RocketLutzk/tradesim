@@ -294,3 +294,4 @@ time,asset,strategy,side,price,value,pnl
 2026-11-23T03:00:00+00:00,SOL,rsi_reversion,SELL,71.39,854.35,-0.1456
 2026-11-23T03:00:00+00:00,SOL,bollinger_reversion,SELL,71.39,915.84,0.0412
 2026-11-23T03:00:00+00:00,XRP,macd,BUY,0.9327,902.24,
+2026-11-23T05:00:00+00:00,XRP,bollinger_reversion,SELL,0.9418,1016.15,0.0313
